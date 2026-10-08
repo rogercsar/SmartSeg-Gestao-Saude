@@ -64,14 +64,32 @@ export async function register(req, res) {
   const { email, password, name } = req.body;
   if (!email) return res.status(400).json({ message: 'E-mail é obrigatório' });
 
-  // Tenta registrar também no Supabase Auth caso esteja habilitado
+  const userId = 'usr-' + Date.now();
+  const userName = name || email.split('@')[0];
+
+  // 1. Salva na tabela "User" do Supabase
+  try {
+    await supabase.from('User').insert([{
+      id: userId,
+      email,
+      name: userName,
+      role: 'admin',
+      org_id: 'org_default',
+      created_at: new Date(),
+      updated_at: new Date(),
+    }]);
+  } catch (err) {
+    console.warn('[Supabase Insert User]:', err.message);
+  }
+
+  // 2. Tenta registrar no Supabase Auth se habilitado
   try {
     if (password) {
       await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { name: name || email.split('@')[0] },
+          data: { name: userName },
         },
       });
     }
@@ -79,10 +97,27 @@ export async function register(req, res) {
     console.warn('[Supabase Auth SignUp]:', err.message);
   }
 
-  return res.json({
-    message: 'Usuário cadastrado com sucesso. Código de verificação enviado.',
+  const userPayload = {
+    id: userId,
     email,
-    name: name || email,
+    name: userName,
+    role: 'admin',
+    org_id: 'org_default',
+  };
+
+  const token = jwt.sign(
+    userPayload,
+    process.env.JWT_SECRET || 'smartseg_super_secret_jwt_key_2026',
+    { expiresIn: '7d' }
+  );
+
+  return res.json({
+    message: 'Usuário cadastrado com sucesso.',
+    email,
+    name: userName,
+    token,
+    access_token: token,
+    user: userPayload,
   });
 }
 
@@ -90,7 +125,6 @@ export async function verifyOtp(req, res) {
   const { email, otpCode } = req.body;
   if (!email) return res.status(400).json({ message: 'E-mail é obrigatório' });
 
-  // Se o código for fornecido, valida via Supabase ou gera token direto
   let userPayload = {
     id: 'usr-' + Date.now(),
     email,
@@ -99,20 +133,13 @@ export async function verifyOtp(req, res) {
     org_id: 'org_default',
   };
 
+  // Se já existir na tabela "User", pega o id dele
   try {
-    if (otpCode) {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: otpCode,
-        type: 'signup',
-      });
-      if (data?.session?.user) {
-        userPayload.id = data.session.user.id;
-      }
+    const { data: existingUser } = await supabase.from('User').select('*').eq('email', email).single();
+    if (existingUser) {
+      userPayload = existingUser;
     }
-  } catch (err) {
-    console.warn('[Supabase VerifyOtp]:', err.message);
-  }
+  } catch (e) {}
 
   const token = jwt.sign(
     userPayload,
