@@ -336,6 +336,51 @@ const entitiesProxy = new Proxy({}, {
   },
 });
 
+export const integrations = {
+  Core: {
+    async UploadPrivateFile({ file }) {
+      if (typeof window !== 'undefined' && file instanceof File) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = async () => {
+            try {
+              const res = await request('/integrations/upload', {
+                method: 'POST',
+                body: JSON.stringify({
+                  file: reader.result,
+                  fileName: file.name,
+                  fileType: file.type,
+                }),
+              });
+              resolve(res);
+            } catch (err) {
+              reject(err);
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+      return request('/integrations/upload', {
+        method: 'POST',
+        body: JSON.stringify({ file }),
+      });
+    },
+    async CreateFileSignedUrl({ file_uri, expires_in }) {
+      return request('/integrations/signed-url', {
+        method: 'POST',
+        body: JSON.stringify({ file_uri, expires_in }),
+      });
+    },
+    async SendEmail({ to, subject, body, text, attachments }) {
+      return request('/integrations/send-email', {
+        method: 'POST',
+        body: JSON.stringify({ to, subject, body, text, attachments }),
+      });
+    },
+  },
+};
+
 // Exporta o cliente unificado (mantém nome base44 para compatibilidade total com as 240+ páginas)
 export const base44 = {
   entities: entitiesProxy,
@@ -343,6 +388,7 @@ export const base44 = {
   auth,
   app,
   users,
+  integrations,
 };
 
 export const apiClient = base44;

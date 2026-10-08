@@ -6,6 +6,7 @@ import { testConnection, isDbConnected } from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import entityRoutes from './routes/entityRoutes.js';
 import functionRoutes from './routes/functionRoutes.js';
+import integrationRoutes from './routes/integrationRoutes.js';
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use(morgan('dev'));
 app.use('/api/auth', authRoutes);
 app.use('/api/entities', entityRoutes);
 app.use('/api/functions', functionRoutes);
+app.use('/api/integrations', integrationRoutes);
 
 // Rota de configurações públicas exigida pelo frontend
 app.get('/api/app/public-settings', (req, res) => {
