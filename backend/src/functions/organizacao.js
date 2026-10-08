@@ -62,6 +62,8 @@ export async function handleOrganizacao(payload, user) {
         dono_email: email,
         permissoes: PADRAO,
         status_assinatura: 'interna',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
       try {
         await supabase.from('Organizacao').insert([orgCriada]);
@@ -78,6 +80,8 @@ export async function handleOrganizacao(payload, user) {
         nome: user.full_name || 'Usuário',
         perfil: 'admin',
         ativo: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
       try {
         await supabase.from('MembroOrganizacao').insert([membro]);

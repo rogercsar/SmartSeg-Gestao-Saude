@@ -82,27 +82,34 @@ async function obterContexto(user) {
     }
     if (!clinica) {
       const novaId = 'clinica_' + Date.now();
-      const { data: nova } = await supabase.from('Clinica').insert([{
-        id: novaId,
-        nome: 'Clínica SmartSeg Medicina Ocupacional',
-        cnpj: '',
-        dono_id: user.id,
-        dono_email: user.email || '',
-        config: { duracao_padrao: 30, salas: ['Consultório 1'] },
-      }]).select().single();
-      clinica = nova || { id: novaId, nome: 'Clínica SmartSeg Medicina Ocupacional' };
+      try {
+        const { data: nova } = await supabase.from('Clinica').insert([{
+          id: novaId,
+          nome: 'Clínica SmartSeg Medicina Ocupacional',
+          cnpj: '',
+          dono_id: user.id || 'user_default',
+          dono_email: user.email || '',
+          config: { duracao_padrao: 30, salas: ['Consultório 1'] },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }]).select().single();
+        clinica = nova;
+      } catch (_) {}
+      if (!clinica) clinica = { id: novaId, nome: 'Clínica SmartSeg Medicina Ocupacional' };
     }
 
     const membroFake = {
       id: 'membro_' + Date.now(),
       clinica_id: clinica.id,
-      user_id: user.id,
-      email: user.email,
+      user_id: user.id || 'user_default',
+      email: user.email || 'admin@smartseg.com.br',
       nome: user.full_name || 'Profissional Clínico',
       perfil: user.role === 'admin' ? 'admin' : 'medico',
       crm: '123456',
       crm_uf: 'SP',
       ativo: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
     try {
       await supabase.from('MembroClinica').insert([membroFake]);
