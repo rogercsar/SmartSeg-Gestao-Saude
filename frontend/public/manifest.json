@@ -1,0 +1,10 @@
+{
+  "name": "SmartSeg",
+  "short_name": "SmartSeg",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0B6FA8",
+  "description": "SmartSeg — Gestão de Saúde e Segurança do Trabalho",
+  "icons": []
+}

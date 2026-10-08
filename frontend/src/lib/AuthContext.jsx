@@ -163,7 +163,20 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    console.warn('[AuthContext] useAuth acessado fora ou antes da hidratação do AuthProvider.');
+    return {
+      user: null,
+      isAuthenticated: false,
+      isLoadingAuth: false,
+      isLoadingPublicSettings: false,
+      authError: null,
+      appPublicSettings: { id: 'smartseg', public_settings: { allow_registration: true } },
+      authChecked: true,
+      logout: () => { window.location.href = '/login'; },
+      navigateToLogin: () => { window.location.href = '/login'; },
+      checkUserAuth: async () => {},
+      checkAppState: async () => {},
+    };
   }
   return context;
 };
