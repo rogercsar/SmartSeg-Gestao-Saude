@@ -160,6 +160,9 @@ export const auth = {
     }
     return res;
   },
+  async loginViaEmailPassword(email, password) {
+    return this.login({ email, password });
+  },
   async register(dados) {
     return request('/auth/register', {
       method: 'POST',
@@ -174,6 +177,12 @@ export const auth = {
   },
   async resendOtp(email) {
     return request('/auth/resend-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+  async resetPasswordRequest(email) {
+    return request('/auth/reset-password-request', {
       method: 'POST',
       body: JSON.stringify({ email }),
     });
