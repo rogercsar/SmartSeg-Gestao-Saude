@@ -24,13 +24,42 @@ export async function handleOrganizacao(payload, user) {
   const email = (user?.email || '').toLowerCase();
 
   if (action === 'dossie_asos') {
-    const { data: asos } = await supabase
-      .from('Atendimento')
-      .select('*')
-      .eq('company_id', company_id)
-      .eq('status', 'finalizado')
-      .order('aso_data', { ascending: false });
-    return asos || [];
+    const { data: trabs } = await supabase.from('Trabalhador').select('id').eq('company_id', company_id).neq('status', 'inativo');
+    const { data: atendimentos } = await supabase.from('Atendimento').select('*').eq('company_id', company_id).eq('status', 'finalizado');
+
+    const total = trabs?.length || 0;
+    const ultimoAso = {};
+    (atendimentos || []).forEach((a) => {
+      if (a.aso_data && (!ultimoAso[a.trabalhador_id] || a.aso_data > ultimoAso[a.trabalhador_id])) {
+        ultimoAso[a.trabalhador_id] = a.aso_data;
+      }
+    });
+
+    const hoje = new Date().toISOString().slice(0, 10);
+    let em_dia = 0;
+    let sem_aso = 0;
+
+    for (const t of trabs || []) {
+      const ult = ultimoAso[t.id];
+      if (!ult) {
+        sem_aso++;
+      } else {
+        const limite = new Date(ult);
+        limite.setFullYear(limite.getFullYear() + 1);
+        if (limite.toISOString().slice(0, 10) >= hoje) {
+          em_dia++;
+        }
+      }
+    }
+
+    const pct_em_dia = total > 0 ? Math.round((em_dia / total) * 100) : 100;
+    return {
+      total,
+      em_dia,
+      sem_aso,
+      pct_em_dia,
+      itens: atendimentos || [],
+    };
   }
 
   if (action === 'garantir') {

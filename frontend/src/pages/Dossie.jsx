@@ -1,66 +1,238 @@
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { LOGO_SMARTSEG } from "@/lib/marca";
 import { hojeLocal, dataBR, addDias } from "@/lib/sstGestao";
 import { situacaoTreinamentos } from "@/pages/Treinamentos";
 import { situacaoEpiColaborador } from "@/pages/Epi";
+import { 
+  Building2, 
+  Printer, 
+  ArrowLeft, 
+  FileCheck2, 
+  AlertTriangle, 
+  XCircle, 
+  CheckCircle2, 
+  Loader2, 
+  ShieldAlert,
+  ChevronRight,
+  Plus
+} from "lucide-react";
 
-// Dossiê da Fiscalização: visão consolidada do cumprimento das NRs de uma empresa, para apresentar à inspeção do trabalho.
-const CSS = `
-@page { size: A4; margin: 12mm; }
-* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.doc { background:#fff; color:#111; font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; max-width: 190mm; margin: 0 auto; padding: 14px; }
-.topo { display:flex; align-items:center; gap:14px; border-bottom: 3px solid #0B6FA8; padding-bottom: 8px; margin-bottom: 10px }
-.topo img { height: 54px } .topo h1 { font-size: 15pt; margin: 0; color:#0B6FA8 }
-h2 { font-size: 10.5pt; background:#EAF4F8; padding:4px 6px; margin:12px 0 4px }
-table { width:100%; border-collapse:collapse } td, th { border:1px solid #bbb; padding:4px 6px; text-align:left; vertical-align:top } th { background:#f6f9fb; width:46% }
-.ok { color:#146C43; font-weight:700 } .at { color:#8A5A00; font-weight:700 } .no { color:#B42318; font-weight:700 }
-.resumo { display:grid; grid-template-columns: repeat(3,1fr); gap:6px; margin:8px 0 } .resumo div { border:1px solid #ccc; border-radius:6px; padding:6px; text-align:center } .resumo b { display:block; font-size:16pt }
-.barra { position: sticky; top: 0; background: #EAF4F8; border-bottom: 1px solid #E3E8EE; padding: 10px; display: flex; gap: 8px; justify-content: center; z-index: 5 }
-.barra select, .barra button { padding: 8px 12px; border-radius: 8px; border: 1px solid #0B6FA8; font-size: 14px } .barra button { background:#0B6FA8; color:#fff; font-weight:700 }
-@media print { .barra { display:none } .doc { padding:0 } }
-`;
-const S = { ok: ["✔ Conforme", "ok"], at: [" Atenção", "at"], no: ["✖ Pendente", "no"] };
-const DOCS = { pgr: "PGR (NR-1)", pcmso: "PCMSO (NR-7)", ltcat: "LTCAT", insalubridade: "Laudo de insalubridade (NR-15)", periculosidade: "Laudo de periculosidade (NR-16)" };
+const S = {
+  ok: { label: "Conforme", icon: CheckCircle2, cls: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  at: { label: "Atenção", icon: AlertTriangle, cls: "text-amber-700 bg-amber-50 border-amber-200" },
+  no: { label: "Pendente", icon: XCircle, cls: "text-rose-700 bg-rose-50 border-rose-200" },
+};
+
+const DOCS = {
+  pgr: "PGR (NR-1)",
+  pcmso: "PCMSO (NR-7)",
+  ltcat: "LTCAT",
+  insalubridade: "Laudo de Insalubridade (NR-15)",
+  periculosidade: "Laudo de Periculosidade (NR-16)",
+};
 
 export default function Dossie() {
   const [params, setParams] = useSearchParams();
   const [empresas, setEmpresas] = useState([]);
+  const [carregandoEmpresas, setCarregandoEmpresas] = useState(true);
+  const [carregandoDossie, setCarregandoDossie] = useState(false);
   const [d, setD] = useState(null);
+  
   const id = params.get("empresa") || "";
-  useEffect(() => { base44.entities.Company.list("razao_social", 1000).then((l) => { setEmpresas(l); if (!id && l[0]) setParams({ empresa: l[0].id }); }).catch(() => {}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
-    if (!id) return;
-    setD(null);
+    setCarregandoEmpresas(true);
+    base44.entities.Company.list("razao_social", 1000)
+      .then((l) => {
+        const lista = Array.isArray(l) ? l : (l?.items || []);
+        setEmpresas(lista);
+        if (!id && lista[0]) {
+          setParams({ empresa: lista[0].id });
+        }
+      })
+      .catch((err) => {
+        console.warn("Falha ao listar empresas:", err);
+        setEmpresas([]);
+      })
+      .finally(() => {
+        setCarregandoEmpresas(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!id) {
+      setD(null);
+      return;
+    }
+    
+    setCarregandoDossie(true);
     (async () => {
-      const f = (e, o) => base44.entities[e].filter({ company_id: id }, o, 5000).catch(() => []);
-      const [emp, trabs, riscos, programas, medicoes, matriz, treinos, entregas, mandatos, reunioes, inspecoes, acoes, psico] = await Promise.all([
-        base44.entities.Company.get(id), f("Trabalhador"), f("Risco"), f("ProgramaSST"), f("Medicao"), f("MatrizTreinamento"), f("Treinamento"), f("EntregaEpi"),
-        f("MandatoCipa", "-inicio"), f("ReuniaoCipa"), f("InspecaoChecklist", "-data"), f("PlanoAcao"), f("AplicacaoPsicossocial", "-created_date"),
-      ]);
-      const asos = await base44.functions.invoke("organizacao", { action: "dossie_asos", company_id: id }).then((r) => r.data).catch(() => null);
-      setD({ emp, trabs: trabs.filter((t) => t.status !== "inativo"), riscos, programas, medicoes, matriz, treinos, entregas, mandatos, reunioes, inspecoes, acoes, psico, asos });
+      try {
+        const f = (e, o) => base44.entities[e].filter({ company_id: id }, o, 5000).catch(() => []);
+        const [emp, trabs, riscos, programas, medicoes, matriz, treinos, entregas, mandatos, reunioes, inspecoes, acoes, psico] = await Promise.all([
+          base44.entities.Company.get(id).catch(() => null),
+          f("Trabalhador"),
+          f("Risco"),
+          f("ProgramaSST"),
+          f("Medicao"),
+          f("MatrizTreinamento"),
+          f("Treinamento"),
+          f("EntregaEpi"),
+          f("MandatoCipa", "-inicio"),
+          f("ReuniaoCipa"),
+          f("InspecaoChecklist", "-data"),
+          f("PlanoAcao"),
+          f("AplicacaoPsicossocial", "-created_date"),
+        ]);
+        
+        const trabsValidos = Array.isArray(trabs) ? trabs : (trabs?.items || []);
+        const riscosValidos = Array.isArray(riscos) ? riscos : (riscos?.items || []);
+        const progValidos = Array.isArray(programas) ? programas : (programas?.items || []);
+        const medValidos = Array.isArray(medicoes) ? medicoes : (medicoes?.items || []);
+        const matrizValida = Array.isArray(matriz) ? matriz : (matriz?.items || []);
+        const treinosValidos = Array.isArray(treinos) ? treinos : (treinos?.items || []);
+        const entregasValidas = Array.isArray(entregas) ? entregas : (entregas?.items || []);
+        const mandatosValidos = Array.isArray(mandatos) ? mandatos : (mandatos?.items || []);
+        const reunioesValidas = Array.isArray(reunioes) ? reunioes : (reunioes?.items || []);
+        const inspValidas = Array.isArray(inspecoes) ? inspecoes : (inspecoes?.items || []);
+        const acoesValidas = Array.isArray(acoes) ? acoes : (acoes?.items || []);
+        const psicoValidos = Array.isArray(psico) ? psico : (psico?.items || []);
+
+        const asos = await base44.functions.invoke("organizacao", { action: "dossie_asos", company_id: id })
+          .then((r) => r.data)
+          .catch(() => null);
+
+        setD({
+          emp: emp || { id, razao_social: "Empresa Selecionada", cnpj: "" },
+          trabs: trabsValidos.filter((t) => t.status !== "inativo"),
+          riscos: riscosValidos,
+          programas: progValidos,
+          medicoes: medValidos,
+          matriz: matrizValida,
+          treinos: treinosValidos,
+          entregas: entregasValidas,
+          mandatos: mandatosValidos,
+          reunioes: reunioesValidas,
+          inspecoes: inspValidas,
+          acoes: acoesValidas,
+          psico: psicoValidos,
+          asos,
+        });
+      } catch (err) {
+        console.error("Erro ao montar dossiê:", err);
+      } finally {
+        setCarregandoDossie(false);
+      }
     })();
   }, [id]);
 
-  const barra = (
-    <div className="barra">
-      <select value={id} onChange={(e) => setParams({ empresa: e.target.value })}>{empresas.map((e) => <option key={e.id} value={e.id}>{e.razao_social}</option>)}</select>
-      <button onClick={() => window.print()}>Imprimir / Salvar em PDF</button>
-    </div>
-);
-  if (!d) return <div style={{ background: "#e5e7eb", minHeight: "100vh" }}><style>{CSS}</style>{barra}<div style={{ padding: 40, color: "#5F6368" }}>Montando o dossiê…</div></div>;
-
   const h = hojeLocal();
+
+  // Estado vazio: Sem empresas cadastradas
+  if (!carregandoEmpresas && empresas.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-6 text-center">
+        <div className="w-16 h-16 bg-blue-50 text-[#0B6FA8] rounded-2xl flex items-center justify-center mb-4 border border-blue-100 shadow-sm">
+          <Building2 size={32} />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Nenhuma empresa encontrada</h2>
+        <p className="text-sm text-slate-500 max-w-md mb-6 leading-relaxed">
+          Para emitir o Dossiê de Fiscalização e Conformidade em SST, é necessário que pelo menos uma empresa esteja cadastrada.
+        </p>
+        <Link
+          to="/empresas"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0B6FA8] text-white font-medium text-sm rounded-xl hover:bg-[#095783] transition-all shadow-sm"
+        >
+          <Plus size={18} />
+          Cadastrar Empresa
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-100 flex flex-col">
+      {/* Barra de Ações Superior (Oculta na impressão) */}
+      <header className="print:hidden sticky top-0 z-20 bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
+        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Link
+              to="/empresas"
+              className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+              title="Voltar para Empresas"
+            >
+              <ArrowLeft size={18} />
+            </Link>
+            <div>
+              <h1 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                <FileCheck2 size={18} className="text-[#0B6FA8]" />
+                Dossiê da Fiscalização (Auditoria SST)
+              </h1>
+              <p className="text-xs text-slate-500 hidden sm:block">
+                Visão consolidada do cumprimento das NRs para apresentação à inspeção do trabalho
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <select
+                value={id}
+                onChange={(e) => setParams({ empresa: e.target.value })}
+                className="bg-slate-50 border border-slate-300 text-slate-800 text-xs sm:text-sm font-medium rounded-lg px-3 py-2 pr-8 focus:ring-2 focus:ring-[#0B6FA8] focus:border-[#0B6FA8] outline-none transition-all cursor-pointer"
+              >
+                {empresas.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.razao_social}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={() => window.print()}
+              disabled={!d || carregandoDossie}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#0B6FA8] hover:bg-[#095783] disabled:opacity-50 text-white text-xs sm:text-sm font-medium rounded-lg shadow-sm transition-all"
+            >
+              <Printer size={16} />
+              <span className="hidden sm:inline">Imprimir / Salvar PDF</span>
+              <span className="sm:hidden">Imprimir</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Conteúdo Central */}
+      <main className="flex-1 max-w-[210mm] w-full mx-auto p-4 sm:p-6 print:p-0">
+        {carregandoDossie || !d ? (
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm my-8 flex flex-col items-center justify-center">
+            <Loader2 size={36} className="text-[#0B6FA8] animate-spin mb-3" />
+            <h3 className="text-base font-semibold text-slate-800">Montando o Dossiê de Fiscalização...</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm">
+              Consolidando dados de programas, atestados, treinamentos, EPIs e planos de ação da empresa.
+            </p>
+          </div>
+        ) : (
+          <DocumentoDossie d={d} h={h} />
+        )}
+      </main>
+    </div>
+  );
+}
+
+function DocumentoDossie({ d, h }) {
   const prog = (t) => d.programas.find((p) => p.tipo === t);
   const docSit = (p) => (!p ? "no" : p.status !== "emitido" ? "at" : p.vigencia_ate && p.vigencia_ate < h ? "no" : p.vigencia_ate && p.vigencia_ate < addDias(h, 30) ? "at" : "ok");
   const revisados = d.riscos.filter((r) => r.revisado).length;
   const psicoRiscos = d.riscos.filter((r) => r.tipo === "psicossocial").length;
-  const abertas = d.acoes.filter((a) => a.status !== "concluida"), atrasadas = abertas.filter((a) => a.prazo && a.prazo < h);
+  const abertas = d.acoes.filter((a) => a.status !== "concluida");
+  const atrasadas = abertas.filter((a) => a.prazo && a.prazo < h);
   const acoesRisco = d.riscos.flatMap((r) => r.plano_acao || []);
   const sitTrein = situacaoTreinamentos(d.trabs, d.matriz, d.treinos);
-  const exig = sitTrein.reduce((n, s) => n + s.itens.length, 0), emDia = sitTrein.reduce((n, s) => n + s.itens.filter((i) => i.sit.k === "ok" || i.sit.k === "vence").length, 0);
+  const exig = sitTrein.reduce((n, s) => n + s.itens.length, 0);
+  const emDia = sitTrein.reduce((n, s) => n + s.itens.filter((i) => i.sit.k === "ok" || i.sit.k === "vence").length, 0);
   const epi = d.trabs.map((t) => situacaoEpiColaborador(t, d.riscos, d.entregas));
   const epiPend = epi.filter((x) => x.pendentes.length).length;
   const assinadas = d.entregas.filter((e) => e.assinatura_uri).length;
@@ -70,56 +242,184 @@ export default function Dossie() {
   const insp = d.inspecoes.filter((i) => i.status === "concluida");
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : null);
   const pctTrein = pct(emDia, exig);
-  const linha = (rotulo, sit, texto) => <tr><th>{rotulo}</th><td><span className={S[sit][1]}>{S[sit][0]}</span> — {texto}</td></tr>;
 
   const itens = [
-    docSit(prog("pgr")), revisados === d.riscos.length && d.riscos.length ? "ok" : "at", psicoRiscos || d.psico.length ? "ok" : "no", atrasadas.length ? "no" : "ok",
-    docSit(prog("pcmso")), d.asos ? (d.asos.pct_em_dia >= 95 ? "ok" : d.asos.pct_em_dia >= 80 ? "at" : "no") : "at", pctTrein === null ? "at" : pctTrein >= 95 ? "ok" : pctTrein >= 80 ? "at" : "no", epiPend ? "no" : "ok",
+    docSit(prog("pgr")),
+    revisados === d.riscos.length && d.riscos.length ? "ok" : "at",
+    psicoRiscos || d.psico.length ? "ok" : "no",
+    atrasadas.length ? "no" : "ok",
+    docSit(prog("pcmso")),
+    d.asos ? (d.asos.pct_em_dia >= 95 ? "ok" : d.asos.pct_em_dia >= 80 ? "at" : "no") : "at",
+    pctTrein === null ? "at" : pctTrein >= 95 ? "ok" : pctTrein >= 80 ? "at" : "no",
+    epiPend ? "no" : "ok",
   ];
   const conformes = itens.filter((x) => x === "ok").length;
 
   return (
-    <div style={{ background: "#e5e7eb", minHeight: "100vh" }}>
-      <style>{CSS}</style>
-      {barra}
-      <div className="doc">
-        <div className="topo"><img src={LOGO_SMARTSEG} alt="SmartSeg" /><div><h1>Dossiê de Conformidade em SST</h1><div>{d.emp.razao_social} · CNPJ {d.emp.cnpj || "—"} · CNAE {d.emp.cnae || "—"} · Grau de risco {d.emp.grau_de_risco || "—"}</div><div>Gerado em {dataBR(h)} · {d.trabs.length} colaboradores ativos</div></div></div>
-        <div className="resumo">
-          <div><b className={conformes === itens.length ? "ok" : conformes >= itens.length - 2 ? "at" : "no"}>{conformes}/{itens.length}</b>itens-chave conformes</div>
-          <div><b className={atrasadas.length ? "no" : "ok"}>{atrasadas.length}</b>ações atrasadas</div>
-          <div><b>{pctTrein === null ? "—" : pctTrein + "%"}</b>treinamentos em dia</div>
+    <article className="bg-white rounded-xl print:rounded-none shadow-md print:shadow-none border border-slate-200 print:border-none p-6 sm:p-10 font-sans text-slate-800 text-[10pt] leading-relaxed">
+      {/* Cabeçalho do Dossiê */}
+      <div className="flex items-center gap-4 border-b-2 border-[#0B6FA8] pb-4 mb-5">
+        <img src={LOGO_SMARTSEG} alt="SmartSeg" className="h-14 object-contain" />
+        <div className="flex-1">
+          <h2 className="text-xl font-bold text-[#0B6FA8] m-0">Dossiê de Conformidade em SST</h2>
+          <div className="text-xs text-slate-600 font-medium mt-0.5">
+            {d.emp.razao_social} · CNPJ: {d.emp.cnpj || "—"} · CNAE: {d.emp.cnae || "—"} · Grau de Risco: {d.emp.grau_de_risco || "—"}
+          </div>
+          <div className="text-[11px] text-slate-500">
+            Emitido em {dataBR(h)} · {d.trabs.length} colaborador(es) ativo(s)
+          </div>
         </div>
-
-        <h2>1. Gerenciamento de riscos — NR-1 (GRO/PGR)</h2>
-        <table><tbody>
-          {linha("PGR", docSit(prog("pgr")), prog("pgr") ? `${prog("pgr").status === "emitido" ? "emitido" : "em rascunho"}${prog("pgr").data_emissao ? " em " + dataBR(prog("pgr").data_emissao) : ""}${prog("pgr").vigencia_ate ? ", revisão até " + dataBR(prog("pgr").vigencia_ate) : ""}${prog("pgr").autenticacao_codigo ? " · código de autenticidade " + prog("pgr").autenticacao_codigo : ""}` : "não elaborado")}
-          {linha("Inventário de riscos", d.riscos.length && revisados === d.riscos.length ? "ok" : "at", `${d.riscos.length} riscos identificados, ${revisados} revisados por profissional`)}
-          {linha("Fatores de riscos psicossociais (obrigatório desde 26/05/2026)", psicoRiscos || d.psico.length ? "ok" : "no", d.psico.length ? `${d.psico.length} pesquisa(s) aplicada(s); ${psicoRiscos} risco(s) psicossocial(is) no inventário` : psicoRiscos ? `${psicoRiscos} risco(s) no inventário` : "não avaliados")}
-          {linha("Plano de ação", atrasadas.length ? "no" : abertas.length ? "at" : "ok", `${acoesRisco.length} ações no inventário; ${abertas.length} abertas em inspeções/planos, ${atrasadas.length} atrasadas`)}
-          {linha("Avaliações quantitativas (NR-9)", d.medicoes.length ? "ok" : "at", `${d.medicoes.length} medição(ões) registrada(s) com equipamento e critério (NR × NHO)`)}
-        </tbody></table>
-
-        <h2>2. Saúde ocupacional — NR-7 (PCMSO)</h2>
-        <table><tbody>
-          {linha("PCMSO", docSit(prog("pcmso")), prog("pcmso") ? `${prog("pcmso").status === "emitido" ? "emitido" : "em rascunho"}${prog("pcmso").medico_coordenador?.nome ? " · coordenador " + prog("pcmso").medico_coordenador.nome : ""}${prog("pcmso").vigencia_ate ? " · até " + dataBR(prog("pcmso").vigencia_ate) : ""}` : "não elaborado")}
-          {d.asos ? linha("ASOs em dia", d.asos.pct_em_dia >= 95 ? "ok" : d.asos.pct_em_dia >= 80 ? "at" : "no", `${d.asos.em_dia} de ${d.asos.total} colaboradores com exame periódico em dia (${d.asos.pct_em_dia}%); ${d.asos.sem_aso} sem ASO registrado no sistema`) : linha("ASOs em dia", "at", "sem dados da clínica no sistema")}
-        </tbody></table>
-
-        <h2>3. Capacitação, EPI e CIPA</h2>
-        <table><tbody>
-          {linha("Treinamentos exigidos por cargo", pctTrein === null ? "at" : pctTrein >= 95 ? "ok" : pctTrein >= 80 ? "at" : "no", exig ? `${emDia} de ${exig} exigências em dia (${pctTrein}%)` : "matriz de treinamentos não definida")}
-          {linha("EPI (NR-6)", epiPend ? "no" : "ok", `${epiPend} colaborador(es) com EPI exigido no PGR e não entregue; ${assinadas} entregas com assinatura do colaborador`)}
-          {linha("CIPA / designado (NR-5)", mandato ? (semAta ? "at" : "ok") : "no", mandato ? `${mandato.tipo === "designado" ? "designado" : "CIPA"} com mandato até ${dataBR(mandato.fim)}; ${reunRealizadas.length} reunião(ões) realizada(s), ${semAta} sem ata` : "sem mandato vigente registrado")}
-          {linha("Inspeções de segurança", insp.length ? "ok" : "at", insp.length ? `${insp.length} inspeção(ões); última em ${dataBR(insp[0].data)} com ${insp[0].conformidade_pct ?? "—"}% de conformidade` : "nenhuma inspeção registrada")}
-        </tbody></table>
-
-        <h2>4. Laudos</h2>
-        <table><tbody>
-          {["ltcat", "insalubridade", "periculosidade"].map((t) => <React.Fragment key={t}>{linha(DOCS[t], prog(t) ? docSit(prog(t)) : "at", prog(t) ? `${prog(t).status === "emitido" ? "emitido" : "em rascunho"}${prog(t).data_emissao ? " em " + dataBR(prog(t).data_emissao) : ""}${prog(t).autenticacao_codigo ? " · código " + prog(t).autenticacao_codigo : ""}` : "não elaborado (avaliar se aplicável)")}</React.Fragment>)}
-        </tbody></table>
-
-        <p style={{ fontSize: "8.5pt", color: "#444", marginTop: 12 }}>Este dossiê consolida as informações registradas no sistema na data de geração. Os documentos citados com código de autenticidade podem ser conferidos pelo QR Code impresso em cada um. Itens marcados como pendentes devem ser regularizados ou justificados pelo responsável técnico.</p>
       </div>
+
+      {/* Cartões de Indicadores */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="border border-slate-200 rounded-lg p-3 text-center bg-slate-50">
+          <div className={`text-2xl font-bold ${conformes === itens.length ? "text-emerald-700" : conformes >= itens.length - 2 ? "text-amber-700" : "text-rose-700"}`}>
+            {conformes}/{itens.length}
+          </div>
+          <div className="text-[11px] text-slate-600 font-medium">Itens-chave conformes</div>
+        </div>
+        <div className="border border-slate-200 rounded-lg p-3 text-center bg-slate-50">
+          <div className={`text-2xl font-bold ${atrasadas.length ? "text-rose-700" : "text-emerald-700"}`}>
+            {atrasadas.length}
+          </div>
+          <div className="text-[11px] text-slate-600 font-medium">Ações atrasadas</div>
+        </div>
+        <div className="border border-slate-200 rounded-lg p-3 text-center bg-slate-50">
+          <div className="text-2xl font-bold text-slate-800">
+            {pctTrein === null ? "—" : `${pctTrein}%`}
+          </div>
+          <div className="text-[11px] text-slate-600 font-medium">Treinamentos em dia</div>
+        </div>
+      </div>
+
+      {/* 1. GRO / PGR */}
+      <SecaoTitulo numero="1" titulo="Gerenciamento de Riscos Ocupacionais — NR-1 (GRO/PGR)" />
+      <TabelaSecao>
+        <LinhaSecao
+          rotulo="PGR"
+          sit={docSit(prog("pgr"))}
+          texto={prog("pgr") ? `${prog("pgr").status === "emitido" ? "Emitido" : "Em rascunho"}${prog("pgr").data_emissao ? " em " + dataBR(prog("pgr").data_emissao) : ""}${prog("pgr").vigencia_ate ? ", revisão até " + dataBR(prog("pgr").vigencia_ate) : ""}${prog("pgr").autenticacao_codigo ? " · autenticação " + prog("pgr").autenticacao_codigo : ""}` : "Não elaborado"}
+        />
+        <LinhaSecao
+          rotulo="Inventário de Riscos"
+          sit={d.riscos.length && revisados === d.riscos.length ? "ok" : "at"}
+          texto={`${d.riscos.length} riscos identificados, ${revisados} revisados por profissional habilitado`}
+        />
+        <LinhaSecao
+          rotulo="Riscos Psicossociais (NR-1)"
+          sit={psicoRiscos || d.psico.length ? "ok" : "no"}
+          texto={d.psico.length ? `${d.psico.length} pesquisa(s) aplicada(s); ${psicoRiscos} risco(s) no inventário` : psicoRiscos ? `${psicoRiscos} risco(s) psicossocial(is) no inventário` : "Não avaliados"}
+        />
+        <LinhaSecao
+          rotulo="Plano de Ação (5W2H)"
+          sit={atrasadas.length ? "no" : abertas.length ? "at" : "ok"}
+          texto={`${acoesRisco.length} ações no inventário; ${abertas.length} abertas, ${atrasadas.length} com prazo vencido`}
+        />
+        <LinhaSecao
+          rotulo="Avaliações Quantitativas (NR-9)"
+          sit={d.medicoes.length ? "ok" : "at"}
+          texto={`${d.medicoes.length} medição(ões) registrada(s) com equipamento e critério normativo (NR × NHO)`}
+        />
+      </TabelaSecao>
+
+      {/* 2. PCMSO */}
+      <SecaoTitulo numero="2" titulo="Saúde Ocupacional — NR-7 (PCMSO)" />
+      <TabelaSecao>
+        <LinhaSecao
+          rotulo="PCMSO"
+          sit={docSit(prog("pcmso"))}
+          texto={prog("pcmso") ? `${prog("pcmso").status === "emitido" ? "Emitido" : "Em rascunho"}${prog("pcmso").medico_coordenador?.nome ? " · coordenador " + prog("pcmso").medico_coordenador.nome : ""}${prog("pcmso").vigencia_ate ? " · vigência até " + dataBR(prog("pcmso").vigencia_ate) : ""}` : "Não elaborado"}
+        />
+        <LinhaSecao
+          rotulo="ASOs em Dia"
+          sit={d.asos ? (d.asos.pct_em_dia >= 95 ? "ok" : d.asos.pct_em_dia >= 80 ? "at" : "no") : "at"}
+          texto={d.asos ? `${d.asos.em_dia} de ${d.asos.total} colaboradores com exame periódico em dia (${d.asos.pct_em_dia}%); ${d.asos.sem_aso} sem ASO registrado` : "Aguardando dados clínicos"}
+        />
+      </TabelaSecao>
+
+      {/* 3. EPI, Capacitação e CIPA */}
+      <SecaoTitulo numero="3" titulo="Capacitação, EPI e CIPA" />
+      <TabelaSecao>
+        <LinhaSecao
+          rotulo="Treinamentos por Cargo"
+          sit={pctTrein === null ? "at" : pctTrein >= 95 ? "ok" : pctTrein >= 80 ? "at" : "no"}
+          texto={exig ? `${emDia} de ${exig} exigências em dia (${pctTrein}%)` : "Matriz de treinamentos não definida"}
+        />
+        <LinhaSecao
+          rotulo="EPI (NR-6)"
+          sit={epiPend ? "no" : "ok"}
+          texto={`${epiPend} colaborador(es) com EPI exigido pendente de entrega; ${assinadas} recibos com assinatura confirmada`}
+        />
+        <LinhaSecao
+          rotulo="CIPA / Designado (NR-5)"
+          sit={mandato ? (semAta ? "at" : "ok") : "no"}
+          texto={mandato ? `${mandato.tipo === "designado" ? "Designado" : "CIPA"} com mandato até ${dataBR(mandato.fim)}; ${reunRealizadas.length} reunião(ões) realizada(s)` : "Sem mandato vigente registrado"}
+        />
+        <LinhaSecao
+          rotulo="Inspeções de Segurança"
+          sit={insp.length ? "ok" : "at"}
+          texto={insp.length ? `${insp.length} inspeção(ões) realizada(s); última em ${dataBR(insp[0].data)} (${insp[0].conformidade_pct ?? "—"}% conformidade)` : "Nenhuma inspeção registrada"}
+        />
+      </TabelaSecao>
+
+      {/* 4. Laudos Ambientais */}
+      <SecaoTitulo numero="4" titulo="Laudos Técnicos e Previdenciários" />
+      <TabelaSecao>
+        {["ltcat", "insalubridade", "periculosidade"].map((t) => (
+          <LinhaSecao
+            key={t}
+            rotulo={DOCS[t]}
+            sit={prog(t) ? docSit(prog(t)) : "at"}
+            texto={prog(t) ? `${prog(t).status === "emitido" ? "Emitido" : "Em rascunho"}${prog(t).data_emissao ? " em " + dataBR(prog(t).data_emissao) : ""}${prog(t).autenticacao_codigo ? " · autenticação " + prog(t).autenticacao_codigo : ""}` : "Não elaborado (avaliar aplicabilidade)"}
+          />
+        ))}
+      </TabelaSecao>
+
+      {/* Rodapé Legal */}
+      <footer className="mt-6 pt-4 border-t border-slate-200 text-[8pt] text-slate-500 leading-normal">
+        Este dossiê consolida as informações registradas na plataforma SmartSeg até a data de emissão. Os documentos que possuem código de autenticidade podem ser verificados através da leitura do QR Code presente no respectivo arquivo original.
+      </footer>
+    </article>
+  );
+}
+
+function SecaoTitulo({ numero, titulo }) {
+  return (
+    <h3 className="text-xs font-bold uppercase tracking-wider text-[#0B6FA8] bg-sky-50/70 border-l-4 border-[#0B6FA8] px-2.5 py-1.5 mt-5 mb-2 rounded-r">
+      {numero}. {titulo}
+    </h3>
+  );
+}
+
+function TabelaSecao({ children }) {
+  return (
+    <div className="border border-slate-200 rounded-lg overflow-hidden mb-3">
+      <table className="w-full border-collapse text-left text-xs">
+        <tbody>{children}</tbody>
+      </table>
     </div>
-);
+  );
+}
+
+function LinhaSecao({ rotulo, sit, texto }) {
+  const cfg = S[sit] || S.at;
+  const Icon = cfg.icon;
+
+  return (
+    <tr className="border-b last:border-b-0 border-slate-100 hover:bg-slate-50/50">
+      <th className="py-2 px-3 font-semibold text-slate-700 w-2/5 sm:w-1/3 bg-slate-50/80 border-r border-slate-100">
+        {rotulo}
+      </th>
+      <td className="py-2 px-3 text-slate-600">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cfg.cls}`}>
+            <Icon size={12} />
+            {cfg.label}
+          </span>
+          <span className="text-slate-700">{texto}</span>
+        </div>
+      </td>
+    </tr>
+  );
 }
