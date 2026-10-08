@@ -1682,3 +1682,25 @@ CREATE INDEX "Vacina_company_id_idx" ON "Vacina"("company_id");
 
 -- CreateIndex
 CREATE INDEX "Vacina_trabalhador_id_idx" ON "Vacina"("trabalhador_id");
+
+-- CreateTable
+CREATE TABLE "User" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "name" TEXT,
+    "role" TEXT DEFAULT 'user',
+    "tipo" TEXT DEFAULT 'autonomo',
+    "plano" TEXT DEFAULT 'gratuito',
+    "org_id" TEXT DEFAULT 'org_default',
+    "org_perfil" TEXT DEFAULT 'admin',
+    "org_ativo" BOOLEAN DEFAULT true,
+    "password_hash" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+CREATE INDEX "User_org_id_idx" ON "User"("org_id");
