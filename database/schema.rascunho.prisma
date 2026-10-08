@@ -1,0 +1,1362 @@
+// RASCUNHO GERADO AUTOMATICAMENTE a partir das 79 tabelas do protótipo (referencia-base44/base44/entities).
+// NÃO aplicar direto. Para cada modelo: (1) se a tabela já existe no SmartSeg (marcada MAPEAR), acrescentar só os campos novos;
+// (2) trocar Json por relações/tabelas quando fizer sentido; (3) definir obrigatoriedade, índices e chaves estrangeiras reais;
+// (4) "org_id" representa o cliente (tenant) — usar o mecanismo de tenant que o SmartSeg já tem.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// MAPEAR para Agenda de exames existente — origem: Agendamento
+model Agendamento {
+  id          String   @id @default(cuid())
+  clinicaId String @map("clinica_id")  /// Clínica
+  companyId String? @map("company_id")  /// Empresa
+  empresaNome String? @map("empresa_nome")  /// Empresa (nome)
+  trabalhadorId String? @map("trabalhador_id")  /// Colaborador
+  trabalhadorNome String @map("trabalhador_nome")  /// Colaborador (nome)
+  cpf String?  /// CPF
+  cargoNome String? @map("cargo_nome")  /// Cargo
+  tipoAso String? @map("tipo_aso")  /// Tipo de ASO | valores: admissional, periodico, retorno, mudanca_risco, demissional
+  data DateTime @db.Date  /// Data
+  hora String?  /// Hora
+  duracaoMin Float? @map("duracao_min")  /// Duração (min)
+  profissionalId String? @map("profissional_id")  /// Médico
+  sala String?  /// Sala
+  status String?  /// Status | valores: agendado, confirmado, chegou, em_atendimento, concluido, faltou, cancelado
+  financeiro Json?  /// Financeiro: {tipo: contrato|kit|avulso, valor, pago, guia_codigo, observacao}
+  origem String?  /// Origem | valores: manual, convocacao
+  atendimentoId String? @map("atendimento_id")  /// Atendimento
+  observacao String?  /// Observação
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([companyId])
+  @@index([trabalhadorId])
+}
+
+/// MAPEAR para Anexos de Documentos existente — origem: Anexo
+model Anexo {
+  id          String   @id @default(cuid())
+  companyId String? @map("company_id")  /// Empresa
+  vinculoTipo String? @map("vinculo_tipo")  /// Vinculado a | valores: empresa, setor, risco, medicao, equipamento, programa, trabalhador
+  vinculoId String? @map("vinculo_id")  /// ID do vínculo
+  categoria String?  /// Categoria | valores: fispq, certificado_calibracao, laudo_laboratorio, ca_epi, certificado_treinamento, art_rrt, documento_assinado, foto, aso, rg_cpf, ctps, comprovante_residencia, diploma, outro
+  nome String  /// Nome
+  descricao String?  /// Descrição
+  fileUri String @map("file_uri")  /// Arquivo (privado)
+  mime String?  /// Tipo do arquivo
+  tamanho Float?  /// Tamanho (bytes)
+  incluirNoDocumento Boolean? @map("incluir_no_documento")  /// Listar nos anexos do documento
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: AplicacaoPsicossocial
+model AplicacaoPsicossocial {
+  id          String   @id @default(cuid())
+  orgId String? @map("org_id")  /// Organização
+  companyId String @map("company_id")  /// Empresa
+  nome String?  /// Nome da aplicação
+  instrumento Json?  /// Instrumento (cópia congelada)
+  setores Json?  /// Setores/GHE oferecidos
+  token String  /// Código do link
+  inicio DateTime? @db.Date  /// Início
+  fim DateTime? @db.Date  /// Encerramento
+  status String?  /// Status | valores: aberta, encerrada
+  publicoEstimado Float? @map("publico_estimado")  /// Nº de trabalhadores convidados
+  riscosGerados Boolean? @map("riscos_gerados")  /// Riscos já gerados no PGR
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: AptidaoCatalogo
+model AptidaoCatalogo {
+  id          String   @id @default(cuid())
+  nome String  /// Aptidão
+  descricao String?  /// Descrição / quando aplicar
+  grupo String?  /// Grupo (opcional) | valores: altura, eletricidade, espaco_confinado, radiacao, quimico, biologico, fisico, maquinario, transporte, outro
+  ativo Boolean?  /// Ativa
+  orgId String? @map("org_id")  /// Organização (vazio = catálogo padrão do Zela)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// Nova tabela — origem: Assinatura
+model Assinatura {
+  id          String   @id @default(cuid())
+  titularNome String? @map("titular_nome")  /// Nome do titular
+  titularEmail String @map("titular_email")  /// E-mail do titular
+  empresa String?  /// Empresa / razão social
+  cpfCnpj String? @map("cpf_cnpj")  /// CPF/CNPJ
+  telefone String?  /// Telefone
+  vidasDeclaradas Float? @map("vidas_declaradas")  /// Vidas declaradas
+  valorMensal Float? @map("valor_mensal")  /// Valor mensal (R$)
+  status String?  /// Status | valores: pendente_pagamento, ativa, inadimplente, suspensa, cancelada, lead
+  gateway String?  /// Gateway
+  gatewayCustomerId String? @map("gateway_customer_id")  /// Cliente no gateway
+  gatewaySubscriptionId String? @map("gateway_subscription_id")  /// Assinatura no gateway
+  linkPagamento String? @map("link_pagamento")  /// Link de pagamento
+  orgId String? @map("org_id")  /// Organização
+  termosVersao String? @map("termos_versao")  /// Versão dos termos aceitos
+  termosAceiteEm String? @map("termos_aceite_em")  /// Aceite em
+  ipAceite String? @map("ip_aceite")  /// IP do aceite
+  inadimplenteDesde DateTime? @db.Date @map("inadimplente_desde")  /// Inadimplente desde
+  ultimoPagamentoEm String? @map("ultimo_pagamento_em")  /// Último pagamento
+  historico Json?  /// Histórico
+  plano String?  /// Plano contratado | valores: tecnico, consultoria, clinica
+  faturasExtras Json? @map("faturas_extras")  /// Cobranças de uso excedente (por mês)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// MAPEAR para ASO/atendimento existente — origem: Atendimento
+model Atendimento {
+  id          String   @id @default(cuid())
+  clinicaId String @map("clinica_id")  /// Clínica
+  agendamentoId String? @map("agendamento_id")  /// Agendamento
+  companyId String? @map("company_id")  /// Empresa
+  empresaNome String? @map("empresa_nome")  /// Empresa
+  empresaCnpj String? @map("empresa_cnpj")  /// CNPJ da empresa
+  trabalhadorId String? @map("trabalhador_id")  /// Colaborador
+  trabalhadorNome String @map("trabalhador_nome")  /// Colaborador
+  cpf String?  /// CPF
+  matricula String?  /// Matrícula
+  dataNascimento String? @map("data_nascimento")  /// Nascimento
+  sexo String?  /// Sexo
+  cargoId String? @map("cargo_id")  /// Cargo
+  cargoNome String? @map("cargo_nome")  /// Cargo
+  tipoAso String? @map("tipo_aso")  /// Tipo de ASO | valores: admissional, periodico, retorno, mudanca_risco, demissional
+  status String?  /// Status | valores: aberto, triagem, consulta, aguardando_resultados, finalizado, cancelado
+  tempos Json?  /// Horários: {chegada, triagem, consulta, finalizado}
+  riscos Json?  /// Riscos ocupacionais (do PGR)
+  triagem Json?  /// Triagem
+  anamnese Json?  /// Anamnese ocupacional
+  exameFisico Json? @map("exame_fisico")  /// Exame físico
+  exames Json?  /// Exames
+  aptidoes Json?  /// Aptidões específicas
+  conclusao String?  /// Conclusão | valores: apto, inapto, apto_restricao
+  restricoes String?  /// Restrições / observações do ASO
+  medico Json?  /// Médico examinador: {id, nome, crm, uf}
+  asoNumero String? @map("aso_numero")  /// Número do ASO
+  asoData DateTime? @db.Date @map("aso_data")  /// Data do ASO
+  financeiro Json?  /// Financeiro (cópia do agendamento)
+  esocialStatus String? @map("esocial_status")  /// S-2220 | valores: pendente, enviado
+  origem String?  /// Origem | valores: atendimento, importacao
+  asoCodigo String? @map("aso_codigo")  /// Código de autenticidade do ASO
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([companyId])
+  @@index([trabalhadorId])
+}
+
+/// Nova tabela — origem: Atestado
+model Atestado {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  trabalhadorId String? @map("trabalhador_id")  /// Colaborador
+  trabalhadorNome String @map("trabalhador_nome")  /// Nome do colaborador
+  dataInicio DateTime @db.Date @map("data_inicio")  /// Início do afastamento
+  dias Float  /// Dias de afastamento
+  motivo String?  /// Motivo | valores: doenca, trabalho, trajeto, outro
+  codigoAfastamentoEsocial String? @map("codigo_afastamento_esocial")  /// Motivo de afastamento (Tabela 18 eSocial)
+  cid String?  /// CID (dado sensível)
+  mesmaDoencaManual String? @map("mesma_doenca_manual")  /// Mesma doença de atestado anterior (forçar) | valores: auto, sim, nao
+  medicoNome String? @map("medico_nome")  /// Médico emitente
+  crm String?  /// CRM
+  crmUf String? @map("crm_uf")  /// UF do CRM
+  arquivoUri String? @map("arquivo_uri")  /// Arquivo do atestado (privado)
+  catId String? @map("cat_id")  /// CAT vinculada (OcorrenciaAcidente)
+  beneficioInss String? @map("beneficio_inss")  /// Benefício INSS | valores: aguardando, b31, b91, indeferido
+  esocialStatus String? @map("esocial_status")  /// Status no eSocial | valores: pendente, enviado
+  dataRetorno DateTime? @db.Date @map("data_retorno")  /// Retorno efetivo
+  observacoes String?  /// Observações
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+  @@index([trabalhadorId])
+}
+
+/// Nova tabela — origem: Autenticacao
+model Autenticacao {
+  id          String   @id @default(cuid())
+  codigo String  /// Código de autenticidade
+  orgId String? @map("org_id")  /// Organização
+  companyId String? @map("company_id")  /// Empresa
+  empresaNome String? @map("empresa_nome")  /// Empresa
+  documentoTipo String? @map("documento_tipo")  /// Tipo
+  documentoId String @map("documento_id")  /// Documento
+  documentoNome String? @map("documento_nome")  /// Nome do documento
+  versao String?  /// Versão
+  emitidoEm String? @map("emitido_em")  /// Emitido em
+  emitidoPor Json? @map("emitido_por")  /// Emitido por
+  responsavel Json?  /// Responsável técnico
+  hash String  /// Hash SHA-256
+  status String?  /// Situação | valores: valido, substituido, revogado
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: AutoInfracao
+model AutoInfracao {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  numeroAi String @map("numero_ai")  /// Número do Auto de Infração
+  dataAutuacao DateTime? @db.Date @map("data_autuacao")  /// Data da autuação
+  orgaoAutuador String? @map("orgao_autuador")  /// Órgão autuador
+  nrItemCitado String? @map("nr_item_citado")  /// NR/Item citado
+  descricaoIrregularidade String? @map("descricao_irregularidade")  /// Descrição da irregularidade
+  valorMulta String? @map("valor_multa")  /// Valor da multa
+  prazoDefesa DateTime? @db.Date @map("prazo_defesa")  /// Prazo para defesa
+  pdfUrl String? @map("pdf_url")  /// PDF do auto (URL pública)
+  defesa Json?  /// Defesa prévia (argumentos, fundamentação, conclusão)
+  status String?  /// Status | valores: pendente, defendido, julgado
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// MAPEAR para Cargo/Função existente — origem: CargoFuncao
+model CargoFuncao {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  nomeCargo String @map("nome_cargo")  /// Nome do cargo
+  cbo String?  /// CBO
+  quantidadeFuncionarios Float? @map("quantidade_funcionarios")  /// Qtd. funcionários
+  riscosIdentificados Json? @map("riscos_identificados")  /// Riscos identificados
+  atividades String?  /// Descrição das atividades
+  episObrigatorios Json? @map("epis_obrigatorios")  /// EPIs obrigatórios
+  procedimentosEmergencia String? @map("procedimentos_emergencia")  /// Procedimentos de emergência
+  unidadeId String? @map("unidade_id")  /// Unidade
+  setorId String? @map("setor_id")  /// Setor
+  jornada String?  /// Jornada de trabalho
+  ghe String?  /// GHE (grupo homogêneo de exposição)
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: Client
+model Client {
+  id          String   @id @default(cuid())
+  name String  /// Nome
+  corporateName String?  /// Razão Social
+  taxId String?  /// CNPJ/CPF
+  email String?  /// E-mail
+  phone String?  /// Telefone
+  status String?  /// Status | valores: ativo, inativo
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// Nova tabela — origem: Clinica
+model Clinica {
+  id          String   @id @default(cuid())
+  nome String  /// Nome da clínica
+  cnpj String?  /// CNPJ
+  donoId String @map("dono_id")  /// Usuário titular
+  donoEmail String? @map("dono_email")  /// E-mail do titular
+  endereco String?  /// Endereço
+  telefone String?  /// Telefone
+  config Json?  /// Configurações: {duracao_padrao, salas}
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+}
+
+/// Nova tabela — origem: CnaeNrMap
+model CnaeNrMap {
+  id          String   @id @default(cuid())
+  cnae String  /// CNAE
+  nrCodigo String @map("nr_codigo")  /// NR
+  observacao String?  /// Observação
+  origem String?  /// Origem | valores: manual, sugestao_ia
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+}
+
+/// Nova tabela — origem: CodigoEsocial
+model CodigoEsocial {
+  id          String   @id @default(cuid())
+  tabela String  /// Tabela | valores: categoria_trabalhador, parte_corpo, agente_causador, situacao_geradora, natureza_lesao, motivo_afastamento, agente_nocivo_aposentadoria, procedimento_diagnostico
+  codigo String  /// Código
+  descricao String  /// Descrição
+  grupo String?  /// Grupo (quando aplicável)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+}
+
+/// MAPEAR para Empresa existente — origem: Company
+model Company {
+  id          String   @id @default(cuid())
+  eMatriz Boolean? @map("e_matriz")  /// É empresa matriz (gerenciadora)
+  razaoSocial String @map("razao_social")  /// Razão Social
+  cnpj String?  /// CNPJ
+  cpf String?  /// CPF (MEI / autônomo)
+  cei String?  /// CEI (Certificado de Empresa Individual)
+  cnae String  /// CNAE
+  porte String?  /// Porte | valores: MEI, Pequeno, Médio, Grande
+  grauDeRisco String? @map("grau_de_risco")  /// Grau de risco | valores: 1, 2, 3, 4
+  uf String  /// UF
+  municipio String?  /// Município
+  setorDescricao String? @map("setor_descricao")  /// Descrição do setor/atividade
+  fap Float?  /// FAP vigente (0,5000 a 2,0000)
+  rat Float?  /// Alíquota RAT (1, 2 ou 3%)
+  folhaMensal Float? @map("folha_mensal")  /// Folha de salários mensal (R$)
+  vinculosMedios Float? @map("vinculos_medios")  /// Número médio de vínculos
+  fapSimulacao Json? @map("fap_simulacao")  /// Simulação do FAP salva: {atual, cenario, rat, folha_anual}
+  tipoCliente String? @map("tipo_cliente")  /// Tipo de cliente | valores: contrato, kit, avulso
+  situacaoFinanceira String? @map("situacao_financeira")  /// Situação financeira | valores: em_dia, pendente, bloqueado
+  kitSaldo Float? @map("kit_saldo")  /// Saldo do kit (atendimentos)
+  valorAvulso Float? @map("valor_avulso")  /// Valor padrão do atendimento avulso (R$)
+  orgId String? @map("org_id")  /// Organização
+  portalToken String? @map("portal_token")  /// Código do link do portal do cliente
+  portalAtivo Boolean? @map("portal_ativo")  /// Portal do cliente ativo
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// Nova tabela — origem: ComplianceItem
+model ComplianceItem {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  nrCodigo String @map("nr_codigo")  /// NR
+  itemExigido String @map("item_exigido")  /// Item exigido
+  status String?  /// Status | valores: pendente, atendido, nao_aplicavel
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: ContratoCliente
+model ContratoCliente {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa-cliente
+  valorBase Float @map("valor_base")  /// Mensalidade base (R$)
+  limiteIncluido Float? @map("limite_incluido")  /// Limite incluído (vidas/exames)
+  valorExcedenteUnitario Float? @map("valor_excedente_unitario")  /// Valor por excedente (R$)
+  unidadeExcedente String? @map("unidade_excedente")  /// Unidade do excedente | valores: vidas, exames
+  vigenciaInicio DateTime? @db.Date @map("vigencia_inicio")  /// Início da vigência
+  vigenciaFim DateTime? @db.Date @map("vigencia_fim")  /// Fim da vigência
+  status String?  /// Status | valores: ativo, encerrado
+  observacao String?  /// Observação
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// MAPEAR para Documentos de terceiros existente — origem: DocumentoTerceiro
+model DocumentoTerceiro {
+  id          String   @id @default(cuid())
+  terceiraId String @map("terceira_id")  /// Empresa terceira
+  companyId String @map("company_id")  /// Empresa contratante
+  tipo String  /// Tipo de documento | valores: contrato, art, ppp, pgr_terceiro, pcmso_terceiro, aso_lote, fssp, certificacao_iso, cipa, nr_comprovante, treinamento_lote, outro
+  nome String  /// Nome/descrição
+  fileUri String? @map("file_uri")  /// Arquivo (privado)
+  dataEmissao DateTime? @db.Date @map("data_emissao")  /// Data de emissão
+  dataValidade DateTime? @db.Date @map("data_validade")  /// Validade (opcional)
+  observacao String?  /// Observação
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// MAPEAR para Entregas de EPI existente — origem: EntregaEpi
+model EntregaEpi {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  trabalhadorId String? @map("trabalhador_id")  /// Colaborador
+  trabalhadorNome String @map("trabalhador_nome")  /// Nome do colaborador
+  epiId String? @map("epi_id")  /// EPI
+  epiNome String @map("epi_nome")  /// Nome do EPI
+  ca String?  /// CA na entrega
+  quantidade Float?  /// Quantidade
+  dataEntrega DateTime @db.Date @map("data_entrega")  /// Data da entrega
+  motivo String?  /// Motivo | valores: primeira_entrega, troca_periodica, desgaste, perda, outro
+  proximaTroca DateTime? @db.Date @map("proxima_troca")  /// Próxima troca
+  orientadoUso Boolean? @map("orientado_uso")  /// Orientado sobre uso, guarda e conservação
+  assinaturaUri String? @map("assinatura_uri")  /// Assinatura do colaborador (privada)
+  assinadoEm String? @map("assinado_em")  /// Assinado em
+  devolvidoEm DateTime? @db.Date @map("devolvido_em")  /// Devolvido em
+  observacao String?  /// Observação
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+  @@index([trabalhadorId])
+}
+
+/// MAPEAR para EPI existente — origem: EpiItem
+model EpiItem {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  nome String  /// EPI
+  tipo String?  /// Tipo | valores: cabeca, olhos_face, auditivo, respiratorio, tronco, maos_bracos, pernas_pes, corpo_inteiro, queda_altura, outro
+  ca String?  /// Número do CA
+  validadeCa DateTime? @db.Date @map("validade_ca")  /// Validade do CA
+  fabricante String?  /// Fabricante
+  vidaUtilDias Float? @map("vida_util_dias")  /// Troca periódica (dias)
+  estoqueAtual Float? @map("estoque_atual")  /// Estoque atual
+  estoqueMinimo Float? @map("estoque_minimo")  /// Estoque mínimo
+  unidade String?  /// Unidade
+  ativo Boolean?  /// Ativo
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: Equipamento
+model Equipamento {
+  id          String   @id @default(cuid())
+  tipo String  /// Tipo | valores: dosimetro, decibelimetro, calibrador_acustico, termometro_ibutg, termo_higrometro, anemometro, luximetro, vibracao, bomba_amostragem, detector_gases, outro
+  fabricante String?  /// Fabricante
+  modelo String  /// Modelo
+  numeroSerie String? @map("numero_serie")  /// Número de série
+  certificadoNumero String? @map("certificado_numero")  /// Nº do certificado de calibração
+  laboratorio String?  /// Laboratório (RBC/Inmetro)
+  dataCalibracao DateTime? @db.Date @map("data_calibracao")  /// Data da calibração
+  validadeCalibracao DateTime? @db.Date @map("validade_calibracao")  /// Validade da calibração
+  certificadoUri String? @map("certificado_uri")  /// Certificado (arquivo privado)
+  observacoes String?  /// Observações
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// MAPEAR para eSocial existente — origem: EventoEsocial
+model EventoEsocial {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  trabalhadorId String @map("trabalhador_id")  /// Trabalhador
+  trabalhadorNome String @map("trabalhador_nome")  /// Nome do trabalhador
+  tipoEvento String @map("tipo_evento")  /// Evento eSocial | valores: S-2200, S-2205, S-2206, S-2210, S-2220, S-2221, S-2230, S-2240, S-2298, S-2299, S-2300
+  dataEvento DateTime @db.Date @map("data_evento")  /// Data do evento
+  descricao String?  /// Descrição
+  recibo String?  /// Nº do recibo eSocial
+  status String?  /// Status | valores: rascunho, transmitido, processado, erro
+  detalhes Json?  /// Detalhes do evento
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+  @@index([trabalhadorId])
+}
+
+/// Nova tabela — origem: EventoPagamento
+model EventoPagamento {
+  id          String   @id @default(cuid())
+  eventId String @map("event_id")  /// ID do evento no gateway
+  tipo String?  /// Tipo
+  assinaturaId String? @map("assinatura_id")  /// Assinatura
+  resumo Json?  /// Resumo
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+}
+
+/// Nova tabela — origem: ExameCatalogo
+model ExameCatalogo {
+  id          String   @id @default(cuid())
+  exame String  /// Exame
+  descricao String?  /// Descrição / indicação
+  codigoEsocial String? @map("codigo_esocial")  /// Código eSocial (Tabela 27)
+  codigoEsocialId String? @map("codigo_esocial_id")  /// Referência ao CodigoEsocial
+  codigoEsocialDescricao String? @map("codigo_esocial_descricao")  /// Descrição do código eSocial
+  periodicidadeMeses Float? @map("periodicidade_meses")  /// Periodicidade padrão (meses)
+  momentosDefault Json? @map("momentos_default")  /// Momentos padrão
+  justificativaModelo String? @map("justificativa_modelo")  /// Modelo de justificativa técnica
+  ativo Boolean?  /// Ativo
+  orgId String? @map("org_id")  /// Organização (vazio = catálogo padrão do Zela)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// Nova tabela — origem: ExamePcmso
+model ExamePcmso {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  cargoId String @map("cargo_id")  /// Cargo
+  riscoIds Json? @map("risco_ids")  /// Riscos que justificam
+  exame String  /// Exame
+  codigoEsocial String? @map("codigo_esocial")  /// Código eSocial (Tabela 27)
+  codigoEsocialDescricao String? @map("codigo_esocial_descricao")  /// Descrição do código eSocial
+  catalogoId String? @map("catalogo_id")  /// Referência ao ExameCatalogo
+  momentos Json?  /// Momentos
+  periodicidadeMeses Float? @map("periodicidade_meses")  /// Periodicidade (meses)
+  justificativa String?  /// Justificativa técnica / NR-7
+  origem String?  /// Origem | valores: manual, ia
+  ativo Boolean?  /// Ativo
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: FinancialTransaction
+model FinancialTransaction {
+  id          String   @id @default(cuid())
+  serviceExecutionId String?  /// Execução vinculada (opcional)
+  clientId String?  /// Cliente (opcional)
+  providerId String?  /// Prestador (opcional)
+  type String  /// Tipo | valores: PAYABLE, RECEIVABLE
+  amount Float  /// Valor (R$)
+  dueDate DateTime @db.Date  /// Vencimento
+  paymentDate DateTime? @db.Date  /// Data de pagamento (opcional)
+  status String?  /// Status | valores: PENDING, PAID, OVERDUE, CANCELLED
+  categoryId String?  /// Categoria
+  description String?  /// Descrição
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// Nova tabela — origem: FolhaMensal
+model FolhaMensal {
+  id          String   @id @default(cuid())
+  mesAno String @map("mes_ano")  /// Mês/ano (YYYY-MM)
+  valorFolha Float @map("valor_folha")  /// Valor da folha (R$)
+  encargos Float?  /// Encargos (R$)
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// Nova tabela — origem: GeneratedDocument
+model GeneratedDocument {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  cargoId String? @map("cargo_id")  /// Cargo
+  trabalhadorId String? @map("trabalhador_id")  /// Trabalhador (opcional)
+  trabalhadorNome String? @map("trabalhador_nome")  /// Nome do trabalhador
+  tipoDocumento String @map("tipo_documento")  /// Tipo | valores: ordem_servico, ficha_epi, lista_presenca, dds, certificado, termo_recusa_epi, pgr, ppp
+  conteudo Json?  /// Conteúdo do documento
+  status String?  /// Status | valores: rascunho, revisado
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+  @@index([trabalhadorId])
+}
+
+/// MAPEAR para Inspeções/checklists existente — origem: InspecaoChecklist
+model InspecaoChecklist {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  setorId String? @map("setor_id")  /// Setor
+  modeloId String? @map("modelo_id")  /// Modelo
+  modeloNome String @map("modelo_nome")  /// Checklist
+  norma String?  /// Norma
+  data DateTime? @db.Date  /// Data
+  inspetor String?  /// Inspetor
+  local String?  /// Local / equipamento inspecionado
+  respostas Json?  /// Respostas
+  status String?  /// Status | valores: andamento, concluida
+  conformidadePct Float? @map("conformidade_pct")  /// % de conformidade
+  observacoes String?  /// Observações gerais
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: InstrumentoPsicossocial
+model InstrumentoPsicossocial {
+  id          String   @id @default(cuid())
+  orgId String? @map("org_id")  /// Organização
+  nome String  /// Nome do instrumento
+  referencia String?  /// Referência / validação
+  validado Boolean?  /// Instrumento validado cientificamente
+  itens Json?  /// Itens
+  dimensoes Json?  /// Dimensões
+  minRespostasGrupo Float? @map("min_respostas_grupo")  /// Mínimo de respostas por grupo (anonimato)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// Nova tabela — origem: InventarioSnapshot
+model InventarioSnapshot {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  programaId String? @map("programa_id")  /// Programa (PGR)
+  versao String?  /// Versão do PGR
+  dataEmissao DateTime? @db.Date @map("data_emissao")  /// Data de emissão do PGR
+  dataSnapshot String @map("data_snapshot")  /// Data/hora do snapshot
+  inventario Json  /// Inventário completo (setores, cargos, riscos)
+  resumo Json?  /// Resumo: {total_setores, total_cargos, total_riscos}
+  responsavelTecnico Json? @map("responsavel_tecnico")  /// Responsável técnico: {nome, conselho, numero, uf}
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: LancamentoFinanceiro
+model LancamentoFinanceiro {
+  id          String   @id @default(cuid())
+  tipo String  /// Tipo | valores: pagar, receber
+  categoria String  /// Categoria
+  valor Float  /// Valor (R$)
+  dataVencimento DateTime @db.Date @map("data_vencimento")  /// Vencimento
+  dataPagamento DateTime? @db.Date @map("data_pagamento")  /// Data de pagamento
+  recorrencia String?  /// Recorrência | valores: unica, mensal
+  companyId String? @map("company_id")  /// Cliente (opcional)
+  prestadorId String? @map("prestador_id")  /// Prestador (opcional)
+  contratoId String? @map("contrato_id")  /// Contrato (excedente)
+  quantidade Float?  /// Quantidade realizada (excedente)
+  status String?  /// Status | valores: pendente, pago, cancelado
+  descricao String?  /// Descrição
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: Levantamento
+model Levantamento {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  setorId String? @map("setor_id")  /// Setor
+  cargoId String? @map("cargo_id")  /// Cargo
+  token String  /// Código do link
+  destinatarioNome String? @map("destinatario_nome")  /// Destinatário
+  destinatarioTipo String? @map("destinatario_tipo")  /// Tipo | valores: colaborador, tecnico, empresa
+  status String?  /// Status | valores: enviado, respondido, incorporado
+  respostas Json?  /// Respostas
+  fotos Json?  /// Fotos (referências privadas)
+  expiraEm String? @map("expira_em")  /// Expira em
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: LogAcessoClinico
+model LogAcessoClinico {
+  id          String   @id @default(cuid())
+  clinicaId String @map("clinica_id")  /// Clínica
+  userId String @map("user_id")  /// Usuário
+  email String?  /// E-mail
+  perfil String?  /// Perfil
+  atendimentoId String? @map("atendimento_id")  /// Atendimento
+  acao String  /// Ação
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+}
+
+/// Nova tabela — origem: LotacaoHistorico
+model LotacaoHistorico {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  trabalhadorId String @map("trabalhador_id")  /// Trabalhador
+  trabalhadorNome String @map("trabalhador_nome")  /// Nome do trabalhador
+  cargoId String? @map("cargo_id")  /// Cargo
+  setorId String? @map("setor_id")  /// Setor
+  unidadeId String? @map("unidade_id")  /// Unidade
+  dataInicio DateTime @db.Date @map("data_inicio")  /// Início
+  dataFim DateTime? @db.Date @map("data_fim")  /// Fim
+  tipoMovimentacao String @map("tipo_movimentacao")  /// Tipo de movimentação | valores: admissao, transferencia_cargo, transferencia_setor, transferencia_unidade, transferencia_empresa, promocao, demissao, reativacao, inativacao
+  observacao String?  /// Observação
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+  @@index([trabalhadorId])
+}
+
+/// MAPEAR para CIPA existente — origem: MandatoCipa
+model MandatoCipa {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  tipo String?  /// Tipo | valores: cipa, designado
+  inicio DateTime @db.Date  /// Início do mandato
+  fim DateTime @db.Date  /// Fim do mandato
+  grauRisco String? @map("grau_risco")  /// Grau de risco
+  membros Json?  /// Membros
+  eleicao Json?  /// Cronograma eleitoral: {edital, inscricoes_inicio, inscricoes_fim, votacao, apuracao, posse}
+  status String?  /// Status | valores: planejado, vigente, encerrado
+  observacoes String?  /// Observações
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// MAPEAR para Matriz de treinamentos existente — origem: MatrizTreinamento
+model MatrizTreinamento {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  cargoId String @map("cargo_id")  /// Cargo
+  nr String  /// NR / código
+  titulo String?  /// Treinamento
+  cargaHoraria Float? @map("carga_horaria")  /// Carga horária (h)
+  reciclagemMeses Float? @map("reciclagem_meses")  /// Reciclagem (meses; 0 = sem prazo fixo)
+  obrigatorio Boolean?  /// Obrigatório
+  fundamento String?  /// Fundamento normativo
+  origem String?  /// Origem | valores: manual, ia
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: Medicao
+model Medicao {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  setorId String? @map("setor_id")  /// Setor
+  cargoIds Json? @map("cargo_ids")  /// Cargos/GHE avaliados
+  riscoId String? @map("risco_id")  /// Risco vinculado
+  tipo String  /// Tipo | valores: ruido, ruido_impacto, calor, frio, iluminacao, vibracao, quimico, poeira
+  agente String?  /// Agente (para químicos)
+  data DateTime? @db.Date  /// Data da medição
+  equipamentoId String? @map("equipamento_id")  /// Equipamento
+  metodologia String?  /// Metodologia / norma
+  avaliado String?  /// Trabalhador/posto avaliado
+  condicoes String?  /// Condições da avaliação (atividade, clima, produção)
+  parametros Json?  /// Dados de entrada do cálculo
+  resultado Json?  /// Resultado calculado
+  responsavel String?  /// Responsável pela medição
+  observacoes String?  /// Observações
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: MembroClinica
+model MembroClinica {
+  id          String   @id @default(cuid())
+  clinicaId String @map("clinica_id")  /// Clínica
+  userId String? @map("user_id")  /// Usuário (vinculado no 1º acesso)
+  email String  /// E-mail
+  nome String?  /// Nome
+  perfil String  /// Perfil | valores: admin, medico, enfermagem, recepcao, fono
+  crm String?  /// CRM / registro
+  crmUf String? @map("crm_uf")  /// UF do registro
+  ativo Boolean?  /// Ativo
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+}
+
+/// Nova tabela — origem: MembroOrganizacao
+model MembroOrganizacao {
+  id          String   @id @default(cuid())
+  orgId String @map("org_id")  /// Organização
+  userId String? @map("user_id")  /// Usuário (vinculado no 1º acesso)
+  email String  /// E-mail
+  nome String?  /// Nome
+  perfil String  /// Perfil | valores: admin, gestor, funcionario
+  ativo Boolean?  /// Ativo
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// MAPEAR para Modelos de checklist existente — origem: ModeloChecklist
+model ModeloChecklist {
+  id          String   @id @default(cuid())
+  nome String  /// Nome do checklist
+  norma String?  /// Norma de referência
+  descricao String?  /// Descrição
+  itens Json?  /// Itens
+  origem String?  /// Origem | valores: padrao, manual, ia
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// Nova tabela — origem: NormaTrecho
+model NormaTrecho {
+  id          String   @id @default(cuid())
+  nrCodigo String @map("nr_codigo")  /// NR (ex: NR-6)
+  titulo String?  /// Título da seção
+  item String?  /// Item/subitem (ex: 6.1)
+  texto String  /// Texto do trecho
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+}
+
+/// Nova tabela — origem: OcorrenciaAcidente
+model OcorrenciaAcidente {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  trabalhadorId String? @map("trabalhador_id")  /// Trabalhador (opcional)
+  trabalhadorNome String? @map("trabalhador_nome")  /// Nome do trabalhador
+  dataHora String? @map("data_hora")  /// Data e hora
+  local String?  /// Local
+  funcaoAcidentado String? @map("funcao_acidentado")  /// Função do acidentado
+  descricao String  /// Descrição do acidente
+  parteCorpo String? @map("parte_corpo")  /// Parte do corpo atingida
+  agenteCausador String? @map("agente_causador")  /// Agente causador
+  situacaoGeradora String? @map("situacao_geradora")  /// Situação geradora
+  naturezaLesao String? @map("natureza_lesao")  /// Natureza da lesão
+  afastamento Boolean?  /// Houve afastamento
+  testemunhas String?  /// Testemunhas
+  envolveMaquina Boolean? @map("envolve_maquina")  /// Envolve máquina/equipamento
+  investigacao Json?  /// Investigação (5 Porquês, Ishikawa, plano de ação)
+  status String?  /// Status | valores: rascunho, em_investigacao, concluida
+  orgId String? @map("org_id")  /// Organização
+  catNumero String? @map("cat_numero")  /// Número da CAT / recibo do S-2210
+  catData DateTime? @db.Date @map("cat_data")  /// Data de registro da CAT
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+  @@index([trabalhadorId])
+}
+
+/// Nova tabela — origem: Organizacao
+model Organizacao {
+  id          String   @id @default(cuid())
+  nome String  /// Nome
+  donoId String @map("dono_id")  /// Titular
+  donoEmail String? @map("dono_email")  /// E-mail do titular
+  permissoes Json?  /// Permissões por perfil: {gestor:{modulo:nivel}, funcionario:{...}}
+  assinaturaId String? @map("assinatura_id")  /// Assinatura
+  statusAssinatura String? @map("status_assinatura")  /// Situação da assinatura | valores: interna, sem_assinatura, pendente_pagamento, ativa, inadimplente, suspensa, cancelada
+  planoUso String? @map("plano_uso")  /// Plano (cobrança por uso) | valores: tecnico, consultoria, clinica
+  canalEscuta Boolean? @map("canal_escuta")  /// Canal de escuta (bem-estar) ativo
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+}
+
+/// MAPEAR para Planos de Ação existente — origem: PlanoAcao
+model PlanoAcao {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  origem String?  /// Origem | valores: checklist, cipa, epi, treinamento, acidente, manual, risco_ia, programa, laudo
+  origemId String? @map("origem_id")  /// ID da origem
+  origemDescricao String? @map("origem_descricao")  /// Descrição da origem
+  riscoId String? @map("risco_id")  /// Risco vinculado
+  riscoAgente String? @map("risco_agente")  /// Agente do risco (para exibição)
+  descricao String  /// Ação
+  justificativa String?  /// Justificativa técnica
+  tipoMedida String? @map("tipo_medida")  /// Tipo de medida (NR-01 1.5.5.2) | valores: eliminacao, coletiva, administrativa, individual
+  estrutura String?  /// Metodologia | valores: nenhuma, pdca, 5w2h
+  metodologia Json?  /// Detalhamento PDCA / 5W2H
+  escopo Json?  /// A quem se aplica: {tipo, ids, descricao}
+  responsavel String?  /// Responsável
+  responsavelEmail String? @map("responsavel_email")  /// E-mail do responsável
+  responsaveisExtras Json? @map("responsaveis_extras")  /// Outros responsáveis / notificados
+  dataInicio DateTime? @db.Date @map("data_inicio")  /// Início previsto
+  prazo DateTime? @db.Date  /// Prazo
+  prioridade String?  /// Prioridade | valores: baixa, media, alta
+  status String?  /// Status | valores: pendente, andamento, concluida, cancelada
+  pendenteAprovacao Boolean? @map("pendente_aprovacao")  /// Aguardando aprovação do elaborador
+  aprovadoPor String? @map("aprovado_por")  /// Aprovado por
+  evidencia String?  /// Evidência / como foi resolvido
+  evidencias Json?  /// Evidências (arquivos privados)
+  lembretes Json?  /// Lembretes
+  notificacoesEnviadas Json? @map("notificacoes_enviadas")  /// Histórico de notificações
+  concluidaEm DateTime? @db.Date @map("concluida_em")  /// Concluída em
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: Prestador
+model Prestador {
+  id          String   @id @default(cuid())
+  nome String  /// Nome
+  cnpj String?  /// CNPJ
+  tipoServico String? @map("tipo_servico")  /// Tipo de serviço | valores: laboratorio, sistema, medico, consultoria, aluguel, outro
+  valorRecorrenteMensal Float @map("valor_recorrente_mensal")  /// Valor recorrente mensal (R$)
+  diaVencimento Float? @map("dia_vencimento")  /// Dia de vencimento
+  status String?  /// Status | valores: ativo, inativo
+  observacao String?  /// Observação
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// Nova tabela — origem: ProgramaSST
+model ProgramaSST {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  tipo String  /// Documento | valores: pgr, pcmso, ltcat, insalubridade, periculosidade
+  versao String?  /// Versão
+  dataEmissao DateTime? @db.Date @map("data_emissao")  /// Data de emissão
+  vigenciaAte DateTime? @db.Date @map("vigencia_ate")  /// Vigência até
+  matriz String?  /// Matriz de risco | valores: 4x4, 5x5
+  responsavel Json?  /// Responsável técnico: {nome, cpf, conselho (CREA/CRM/MTE/outro), numero, uf, formacao}
+  medicoCoordenador Json? @map("medico_coordenador")  /// Médico coordenador PCMSO: {nome, cpf, crm, uf}
+  textos Json?  /// Textos técnicos (introdução, metodologia, conclusão...)
+  status String?  /// Status | valores: rascunho, emitido
+  assinatura Json?  /// Assinatura: {modo: manual|imagem|certificado, file_uri, nome, data}
+  documentoAssinado Json? @map("documento_assinado")  /// PDF assinado digitalmente: {file_uri, nome, data, assinante}
+  orgId String? @map("org_id")  /// Organização
+  autenticacaoCodigo String? @map("autenticacao_codigo")  /// Código de autenticidade (QR)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: Provider
+model Provider {
+  id          String   @id @default(cuid())
+  name String  /// Nome
+  taxId String?  /// CNPJ/CPF
+  serviceType String?  /// Tipo de serviço | valores: laboratorio, radiologia, medico, consultoria, palestras, outro
+  defaultPaymentTermDays Float?  /// Prazo padrão de repasse (dias)
+  email String?  /// E-mail
+  phone String?  /// Telefone
+  status String?  /// Status | valores: ativo, inativo
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// Nova tabela — origem: RecusaTrabalho
+model RecusaTrabalho {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  trabalhadorId String? @map("trabalhador_id")  /// Trabalhador (opcional)
+  trabalhadorNome String @map("trabalhador_nome")  /// Nome do trabalhador
+  cargoId String? @map("cargo_id")  /// Cargo (opcional)
+  setorId String? @map("setor_id")  /// Setor (opcional)
+  dataRecusa DateTime @db.Date @map("data_recusa")  /// Data da recusa
+  horaRecusa String? @map("hora_recusa")  /// Hora (opcional)
+  local String?  /// Local
+  situacaoPerigosa String @map("situacao_perigosa")  /// Situação perigosa relatada
+  riscoIdentificado String? @map("risco_identificado")  /// Risco identificado
+  medidaControleExistente String? @map("medida_controle_existente")  /// Medidas de controle existentes
+  acaoEmpregador String? @map("acao_empregador")  /// Providência do empregador
+  status String?  /// Status | valores: pendente, em_analise, resolvido
+  anexoUri String? @map("anexo_uri")  /// Anexo (foto/evidência, privado)
+  observacoes String?  /// Observações
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+  @@index([trabalhadorId])
+}
+
+/// Nova tabela — origem: RelatorioSaude
+model RelatorioSaude {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  tipo String  /// Tipo | valores: epidemiologico, gestor, analitico_pcmso
+  inicio DateTime @db.Date  /// Início do período
+  fim DateTime @db.Date  /// Fim do período
+  setorId String? @map("setor_id")  /// Setor (vazio = todos)
+  analise Json?  /// Análise técnica (IA + edição): {sintese, achados, recomendacoes, conclusao}
+  responsavel Json?  /// Responsável: {nome, registro}
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: RespostaPsicossocial
+model RespostaPsicossocial {
+  id          String   @id @default(cuid())
+  aplicacaoId String @map("aplicacao_id")  /// Aplicação
+  orgId String? @map("org_id")  /// Organização
+  companyId String? @map("company_id")  /// Empresa
+  setorId String? @map("setor_id")  /// Setor/GHE
+  respostas Json?  /// Respostas (anônimas)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// MAPEAR para CIPA (reuniões) existente — origem: ReuniaoCipa
+model ReuniaoCipa {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  mandatoId String? @map("mandato_id")  /// Mandato
+  data DateTime @db.Date  /// Data
+  tipo String?  /// Tipo | valores: ordinaria, extraordinaria
+  pauta String?  /// Pauta
+  ata String?  /// Ata
+  presentes Json?  /// Presentes
+  status String?  /// Status | valores: agendada, realizada, cancelada
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: Risco
+model Risco {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  setorId String? @map("setor_id")  /// Setor
+  cargoIds Json? @map("cargo_ids")  /// Cargos expostos (GHE)
+  tipo String  /// Tipo | valores: fisico, quimico, biologico, ergonomico, acidente, psicossocial
+  agente String  /// Agente / perigo
+  codigoEsocial String? @map("codigo_esocial")  /// Código eSocial (Tabela 24)
+  codigoEsocialDescricao String? @map("codigo_esocial_descricao")  /// Descrição do código eSocial
+  catalogoId String? @map("catalogo_id")  /// Referência ao RiscoCatalogo
+  aptidaoIds Json? @map("aptidao_ids")  /// Aptidões ASO sugeridas
+  fonteGeradora String? @map("fonte_geradora")  /// Fonte geradora / circunstância
+  possiveisDanos String? @map("possiveis_danos")  /// Possíveis lesões ou agravos à saúde
+  meioPropagacao String? @map("meio_propagacao")  /// Meio de propagação / via de exposição
+  exposicao String?  /// Exposição | valores: habitual_permanente, habitual_intermitente, eventual
+  tipoAvaliacao String? @map("tipo_avaliacao")  /// Avaliação | valores: qualitativa, quantitativa
+  intensidade String?  /// Intensidade/concentração medida
+  unidadeMedida String? @map("unidade_medida")  /// Unidade de medida
+  limiteTolerancia String? @map("limite_tolerancia")  /// Limite de tolerância
+  tecnicaMedicao String? @map("tecnica_medicao")  /// Técnica/metodologia de medição (ex.: NHO-01)
+  severidade Float?  /// Severidade
+  probabilidade Float?  /// Probabilidade
+  nivelRisco String? @map("nivel_risco")  /// Classificação do risco
+  criterioAvaliacao String? @map("criterio_avaliacao")  /// Justificativa da severidade e probabilidade, considerando trabalhadores expostos, exigências da atividade e controles
+  dataAvaliacao DateTime? @db.Date @map("data_avaliacao")  /// Data da última avaliação
+  motivoRevisao String? @map("motivo_revisao")  /// Motivo da revisão (mudança, acidente, ineficácia, medida implementada ou requisito legal)
+  medidasExistentes Json? @map("medidas_existentes")  /// Medidas de controle existentes
+  epc Json?  /// EPCs
+  epi Json?  /// EPIs
+  planoAcao Json? @map("plano_acao")  /// Plano de ação
+  insalubridade Json?  /// Insalubridade (NR-15): {caracteriza, anexo, grau, fundamentacao}
+  periculosidade Json?  /// Periculosidade (NR-16): {caracteriza, anexo, fundamentacao}
+  aposentadoriaEspecial Json? @map("aposentadoria_especial")  /// LTCAT: {enquadra, codigo_anexo_iv, fundamentacao}
+  origem String?  /// Origem | valores: manual, ia, foto, levantamento
+  revisado Boolean?  /// Revisado pelo responsável técnico
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: RiscoCatalogo
+model RiscoCatalogo {
+  id          String   @id @default(cuid())
+  tipo String  /// Tipo | valores: fisico, quimico, biologico, ergonomico, acidente, psicossocial
+  agente String  /// Agente / perigo
+  descricao String?  /// Descrição / orientação de uso
+  codigoEsocial String? @map("codigo_esocial")  /// Código eSocial (Tabela 24)
+  codigoEsocialId String? @map("codigo_esocial_id")  /// Referência ao CodigoEsocial
+  codigoEsocialDescricao String? @map("codigo_esocial_descricao")  /// Descrição do código eSocial
+  fonteGeradora String? @map("fonte_geradora")  /// Fonte geradora sugerida
+  possiveisDanos String? @map("possiveis_danos")  /// Possíveis lesões / agravos
+  meioPropagacao String? @map("meio_propagacao")  /// Meio de propagação / via
+  exameIds Json? @map("exame_ids")  /// Exames associados (catálogo)
+  aptidaoIds Json? @map("aptidao_ids")  /// Aptidões ASO associadas (catálogo)
+  ativo Boolean?  /// Ativo
+  orgId String? @map("org_id")  /// Organização (vazio = catálogo padrão do Zela)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// Nova tabela — origem: ServiceCategory
+model ServiceCategory {
+  id          String   @id @default(cuid())
+  name String  /// Nome
+  slug String?  /// Identificador
+  description String?  /// Descrição
+  ordem Float?  /// Ordem
+  ativo Boolean?  /// Ativa
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// Nova tabela — origem: ServiceExecution
+model ServiceExecution {
+  id          String   @id @default(cuid())
+  date DateTime @db.Date  /// Data
+  clientId String  /// Cliente
+  providerId String?  /// Prestador/Parceiro (opcional)
+  categoryId String  /// Categoria
+  description String?  /// Descrição
+  salePrice Float  /// Preço de venda (R$)
+  costPrice Float?  /// Custo do prestador (R$)
+  status String?  /// Status | valores: SCHEDULED, COMPLETED, NO_SHOW, CANCELLED
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// MAPEAR para Setor existente — origem: Setor
+model Setor {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  unidadeId String? @map("unidade_id")  /// Unidade
+  nome String  /// Nome do setor
+  descricaoAmbiente String? @map("descricao_ambiente")  /// Descrição do ambiente (área, piso, iluminação, ventilação, máquinas)
+  fotos Json?  /// Fotos do setor
+  analiseIa Json? @map("analise_ia")  /// Última análise de fotos pela IA
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// MAPEAR para Terceiros existente — origem: Terceira
+model Terceira {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa contratante
+  razaoSocial String @map("razao_social")  /// Razão Social
+  cnpj String?  /// CNPJ
+  responsavel String?  /// Responsável legal
+  telefone String?  /// Telefone
+  email String?  /// E-mail
+  contratoNumero String? @map("contrato_numero")  /// Nº do contrato
+  contratoInicio DateTime? @db.Date @map("contrato_inicio")  /// Início do contrato
+  contratoFim DateTime? @db.Date @map("contrato_fim")  /// Fim do contrato
+  areaAtuacao String? @map("area_atuacao")  /// Área de atuação / serviço
+  setorIds Json? @map("setor_ids")  /// Setores onde atua
+  cargoIds Json? @map("cargo_ids")  /// Cargos/funções executados
+  responsavelTecnicoNome String? @map("responsavel_tecnico_nome")  /// Responsável técnico (nome)
+  responsavelTecnicoConselho String? @map("responsavel_tecnico_conselho")  /// Conselho/registro | valores: CREA, CRM, MTE, outro
+  responsavelTecnicoNumero String? @map("responsavel_tecnico_numero")  /// Nº do registro
+  status String?  /// Status | valores: ativa, suspensa, inativa
+  observacoes String?  /// Observações
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: TextoTecnico
+model TextoTecnico {
+  id          String   @id @default(cuid())
+  tipoDocumento String @map("tipo_documento")  /// Documento | valores: pgr, pcmso, ltcat, lti, ltp, ficha_epi, ordem_servico, auto_infracao, geral
+  categoria String  /// Categoria | valores: caracterizacao_risco, caracterizacao_insalubridade, caracterizacao_periculosidade, fundamentacao, introducao, metodologia, conclusao, responsabilidades, revisao, medida_controle, outro
+  titulo String  /// Título
+  texto String  /// Texto
+  riscoTipo String? @map("risco_tipo")  /// Tipo de risco (opcional) | valores: fisico, quimico, biologico, ergonomico, acidente, psicossocial
+  agente String?  /// Agente (opcional)
+  tags Json?  /// Tags
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+}
+
+/// MAPEAR para Colaborador existente — origem: Trabalhador
+model Trabalhador {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  cargoId String? @map("cargo_id")  /// Cargo
+  nome String  /// Nome
+  cpf String?  /// CPF (opcional)
+  dataAdmissao DateTime? @db.Date @map("data_admissao")  /// Data de admissão
+  dataDemissao DateTime? @db.Date @map("data_demissao")  /// Data de demissão
+  setorId String? @map("setor_id")  /// Setor
+  unidadeId String? @map("unidade_id")  /// Unidade
+  matricula String?  /// Matrícula (eSocial)
+  categoriaTrabalhador String? @map("categoria_trabalhador")  /// Categoria do trabalhador (Tabela 1 eSocial)
+  dataNascimento DateTime? @db.Date @map("data_nascimento")  /// Data de nascimento
+  sexo String?  /// Sexo | valores: M, F
+  status String?  /// Status | valores: ativo, inativo
+  estabilidade Json?  /// Estabilidade: {tem, tipo, data_fim, observacao}
+  cipaCargo String? @map("cipa_cargo")  /// Cargo na CIPA | valores: presidente, vice_presidente, secretario, membro, suplente
+  brigada Boolean?  /// Membro de brigada de emergência
+  biometria Json?  /// Biometria: {cadastrada, tipo, arquivo_uri}
+  deficiencia Json?  /// Deficiência (PCD): {tem, tipo, descricao, cid}
+  orgId String? @map("org_id")  /// Organização
+  nit String?  /// NIT / PIS
+  ctps String?  /// CTPS (número, série, UF)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// MAPEAR para Treinamentos existente — origem: Treinamento
+model Treinamento {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  trabalhadorId String? @map("trabalhador_id")  /// Trabalhador
+  trabalhadorNome String @map("trabalhador_nome")  /// Nome do trabalhador
+  nr String  /// NR
+  dataRealizacao DateTime @db.Date @map("data_realizacao")  /// Data de realização
+  validade DateTime? @db.Date  /// Validade
+  titulo String?  /// Título do treinamento
+  cargaHoraria Float? @map("carga_horaria")  /// Carga horária (h)
+  instrutor String?  /// Instrutor
+  cargoId String? @map("cargo_id")  /// Cargo
+  certificadoUri String? @map("certificado_uri")  /// Certificado (arquivo privado)
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+  @@index([trabalhadorId])
+}
+
+/// Nova tabela — origem: TrilhaDocumento
+model TrilhaDocumento {
+  id          String   @id @default(cuid())
+  orgId String? @map("org_id")  /// Organização
+  companyId String? @map("company_id")  /// Empresa
+  documentoTipo String? @map("documento_tipo")  /// Tipo de documento
+  documentoId String @map("documento_id")  /// Documento
+  evento String  /// Evento | valores: ia_sugeriu, editado, emitido, revogado
+  usuarioEmail String? @map("usuario_email")  /// Usuário
+  usuarioNome String? @map("usuario_nome")  /// Nome
+  versao String?  /// Versão
+  hash String?  /// Hash SHA-256 do conteúdo
+  detalhes Json?  /// Detalhes (seções, % alterado, textos sugeridos)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// MAPEAR para Unidade existente — origem: Unidade
+model Unidade {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  nome String  /// Nome da unidade
+  tipoInscricao String? @map("tipo_inscricao")  /// Tipo de inscrição (eSocial) | valores: cnpj, cno, caepf
+  numeroInscricao String? @map("numero_inscricao")  /// CNPJ/CNO/CAEPF da unidade
+  endereco String?  /// Endereço
+  municipio String?  /// Município
+  uf String?  /// UF
+  cnae String?  /// CNAE da unidade
+  grauRisco String? @map("grau_risco")  /// Grau de risco (NR-4) | valores: 1, 2, 3, 4
+  numTrabalhadores Float? @map("num_trabalhadores")  /// Nº de trabalhadores
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+}
+
+/// Nova tabela — origem: Vacina
+model Vacina {
+  id          String   @id @default(cuid())
+  companyId String @map("company_id")  /// Empresa
+  trabalhadorId String @map("trabalhador_id")  /// Trabalhador
+  trabalhadorNome String @map("trabalhador_nome")  /// Nome do trabalhador
+  vacina String  /// Vacina | valores: tétano, hepatite_b, influenza, covid19, febre_amarela, sarampo, tuberculose, outra
+  dose String?  /// Dose | valores: 1, 2, 3, reforco, dose_unica
+  dataAplicacao DateTime @db.Date @map("data_aplicacao")  /// Data de aplicação
+  proximaDose DateTime? @db.Date @map("proxima_dose")  /// Próxima dose
+  lote String?  /// Lote
+  observacoes String?  /// Observações
+  orgId String? @map("org_id")  /// Organização
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  @@index([orgId])
+  @@index([companyId])
+  @@index([trabalhadorId])
+}
